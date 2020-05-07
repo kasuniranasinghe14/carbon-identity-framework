@@ -19,6 +19,9 @@
 package org.wso2.carbon.identity.application.authentication.framework.handler.request.impl;
 
 import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.identity.application.authentication.framework.config.ConfigurationFacade;
 import org.wso2.carbon.identity.application.authentication.framework.config.loader.SequenceLoader;
 import org.wso2.carbon.identity.application.authentication.framework.config.model.SequenceConfig;
@@ -28,10 +31,11 @@ import org.wso2.carbon.identity.application.authentication.framework.handler.req
 import org.wso2.carbon.identity.application.authentication.framework.internal.FrameworkServiceDataHolder;
 import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.common.IdentityApplicationManagementException;
-import org.wso2.carbon.identity.application.common.model.AuthenticationStep;
 import org.wso2.carbon.identity.application.common.model.ServiceProvider;
 import org.wso2.carbon.identity.application.mgt.ApplicationManagementService;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Map;
 
 /**
@@ -39,6 +43,8 @@ import java.util.Map;
  *
  */
 public abstract class AbstractRequestCoordinator implements RequestCoordinator {
+
+    private static Log log = LogFactory.getLog(AbstractRequestCoordinator.class);
 
     /**
      * Returns the sequence config related to current Authentication Context.
@@ -84,6 +90,28 @@ public abstract class AbstractRequestCoordinator implements RequestCoordinator {
         }
 
         ServiceProvider serviceProvider;
+
+        if (StringUtils.equals(reqType, "cas")) {
+            URL url = null;
+            try {
+                url = new URL(clientId);
+            } catch (MalformedURLException e) {
+                throw new FrameworkException("Error occurred while retrieving service provider for client ID: " +
+                        clientId + " and tenant: " + tenantDomain, e);
+            }
+
+            // baseUrl MUST match the CAS Configuration Service Url.
+            clientId = url.getProtocol() + "://" + url.getHost();
+            if (url.getPort() != -1) {
+                clientId = clientId + ":" + url.getPort();
+            }
+
+            // Remove info log and uncomment debug log after testing the fix.
+            log.info("Resolved url as clientId for cas request: " + clientId);
+            //        if (log.isDebugEnabled()) {
+            //            log.debug("Resolved url as clientId for cas request: " + clientId);
+            //        }
+        }
 
         try {
             serviceProvider = appInfo.getServiceProviderByClientId(clientId, reqType, tenantDomain);
